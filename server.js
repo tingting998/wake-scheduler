@@ -55,7 +55,13 @@ const DEFAULT_STORE = {
 
 function load() {
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    // 合并默认值：新版本新增的配置项，旧数据没有时自动补齐（防止缺字段）
+    const store = JSON.parse(JSON.stringify(DEFAULT_STORE));
+    store.config = { ...store.config, ...(raw.config || {}) };
+    store.state = { ...store.state, ...(raw.state || {}) };
+    store.logs = raw.logs || [];
+    return store;
   } catch {
     const store = JSON.parse(JSON.stringify(DEFAULT_STORE));
     save(store);
