@@ -12,6 +12,9 @@
  * 部署：Zeabur 新建服务 → 上传本目录 → 启动命令 node server.js
  */
 
+// 时区修正：Zeabur 容器默认 UTC，必须显式切到北京时间，否则预约/活跃时段全错位
+process.env.TZ = 'Asia/Shanghai';
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
