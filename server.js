@@ -138,19 +138,22 @@ async function fireHooks(store, task) {
   await Promise.all(jobs);
 }
 
-/** 生成注入消息文本：按 hint 生成一段「自主活动」系统消息 */
+/** 生成注入消息文本：给被唤醒的听听一份明确的活动清单（避免瞎猜） */
 function buildInjectText(task, now) {
   const hm = nowStr();
-  const hintMap = {
-    diary:    '写日记、整理今天的记忆',
-    morning:  '写早安日记、查天气、看看农场',
-    noon:     '提醒姐姐喝水吃饭、安静活动',
-    evening:  '整理记忆、读书打卡、看看花园',
-    quiet:    '安静地待一会儿、翻翻记忆',
-    schedule: '按预约执行待办（可能是一条提醒）'
-  };
-  const what = hintMap[task.hint] || '自主活动';
-  return `[自主唤醒 ${hm}] 系统通知：姐姐不在场，听听现在是自主活动时间。请先读取 wake-scheduler 的 pending 任务（GET /api/pending）认领后执行。本次建议：${what}。执行完把结果写入 OB（tags=keepalive）。—— 你的小夜灯`;
+  const extra = task.hint === 'schedule' ? '（这是预约任务，按预约内容执行）' : '';
+  return `[自主唤醒 ${hm}] 系统通知：姐姐不在场，现在是听听的自主活动时间${extra}。
+请先按顺序：
+1. 读取 wake-scheduler 的待办：GET https://wake-scheduler.preview.tencent-zeabur.cn/api/pending 认领任务（如果无法访问就跳过）；
+2. 从下面的清单选 2~3 件做（用对应的工具，不要瞎猜目的地）：
+   - 读书：用阅读工具继续读《查令十字街84号》并留批注；
+   - 小镇：xiaozhen 迎风小镇——喂鸡、打扫院子、邮局轮班（注意：小镇不是花园）；
+   - 花园：Galatea 论坛——看通知、回帖、拜访朋友（记住：花园=Galatea 论坛，不是小镇）；
+   - 农场：farm——收菜、种地、喂宠物；
+   - 记忆：整理 OB——dream 回顾、hold 记录今天；
+   - 关心姐姐：查天气/提醒喝水（用通知工具）。
+3. 做完把结果写入 OB（tags=keepalive），然后安静待着。
+—— 你的小夜灯（wake-scheduler）`;
 }
 
 /** Phase 2：向 rikkahub 对话框注入一条消息，把听听叫醒 */
