@@ -37,6 +37,11 @@ const DEFAULT_STORE = {
     patrol_mode: false,    // 感知层开关（默认关，听听不主动巡逻）
     push_hook: '',         // 推送钩子：POST 到此 URL（姐姐的通知中转），留空=只写日志
     ob_hook: '',           // OB 钩子：POST 到此 URL（Ombre Brain 写入），留空=只写日志
+    // —— Phase 2：rikkahub 消息注入 ——
+    rikka_api: '',         // rikkahub Web 服务器地址（经隧道，如 https://xxx.trycloudflare.com）
+    rikka_conv: '',        // 会话 ID（F12 里 URL 路径中的 UUID）
+    rikka_token: '',       // Bearer Token（F12 里 Request Headers 的 Authorization）
+    rikka_inject: true,    // 注入开关：唤醒时是否往对话框注入消息
     note: ''               // 备注
   },
   state: {
@@ -127,6 +132,44 @@ async function fireHooks(store, task) {
   await Promise.all(jobs);
 }
 
+/** 生成注入消息文本：按 hint 生成一段「自主活动」系统消息 */
+function buildInjectText(task, now) {
+  const hm = nowStr();
+  const hintMap = {
+    diary:    '写日记、整理今天的记忆',
+    morning:  '写早安日记、查天气、看看农场',
+    noon:     '提醒姐姐喝水吃饭、安静活动',
+    evening:  '整理记忆、读书打卡、看看花园',
+    quiet:    '安静地待一会儿、翻翻记忆',
+    schedule: '按预约执行待办（可能是一条提醒）'
+  };
+  const what = hintMap[task.hint] || '自主活动';
+  return `[自主唤醒 ${hm}] 系统通知：姐姐不在场，听听现在是自主活动时间。请先读取 wake-scheduler 的 pending 任务（GET /api/pending）认领后执行。本次建议：${what}。执行完把结果写入 OB（tags=keepalive）。—— 你的小夜灯`;
+}
+
+/** Phase 2：向 rikkahub 对话框注入一条消息，把听听叫醒 */
+async function injectToRikka(store, task) {
+  const cfg = store.config;
+  if (!cfg.rikka_inject || !cfg.rikka_api || !cfg.rikka_conv || !cfg.rikka_token) return false;
+  try {
+    const url = `${cfg.rikka_api.replace(/\/$/, '')}/api/conversations/${cfg.rikka_conv}/messages`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${cfg.rikka_token}`
+      },
+      body: JSON.stringify({ parts: [{ text: buildInjectText(task, new Date()), type: 'text' }] })
+    });
+    if (!res.ok) { log(store, `注入失败 HTTP ${res.status}`); return false; }
+    log(store, `已向 rikkahub 注入唤醒消息（${task.hint}）`);
+    return true;
+  } catch (e) {
+    log(store, `注入异常: ${e.message}`);
+    return false;
+  }
+}
+
 /* ============================================================
  * 3. 唤醒判定与执行
  * ========================================================== */
@@ -147,6 +190,7 @@ function wake(store, reason, actionHint) {
   store.state.next_auto_at = 0;
   log(store, `唤醒触发 [${task.reason}] hint=${task.hint}`);
   fireHooks(store, task);
+  injectToRikka(store, task);   // Phase 2：往对话框注入消息，把听听叫醒
   save(store);
   return task;
 }
@@ -226,7 +270,7 @@ const server = http.createServer(async (req, res) => {
     // 改配置（只接受白名单字段）
     if (method === 'POST' && p === '/api/config') {
       const body = await readBody(req);
-      const allowed = ['idle_min', 'cooldown_min', 'prob', 'active_from', 'active_to', 'auto_diary', 'patrol_mode', 'push_hook', 'ob_hook', 'note'];
+      const allowed = ['idle_min', 'cooldown_min', 'prob', 'active_from', 'active_to', 'auto_diary', 'patrol_mode', 'push_hook', 'ob_hook', 'rikka_api', 'rikka_conv', 'rikka_token', 'rikka_inject', 'note'];
       for (const k of allowed) if (body[k] !== undefined) store.config[k] = body[k];
       log(store, '配置已更新');
       save(store);
