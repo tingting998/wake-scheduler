@@ -138,21 +138,15 @@ async function fireHooks(store, task) {
   await Promise.all(jobs);
 }
 
-/** 生成注入消息文本：给被唤醒的听听一份明确的活动清单（避免瞎猜） */
+/** 生成注入消息文本：不布置任务，只是告诉听听「现在是你的自由时间」 */
 function buildInjectText(task, now) {
   const hm = nowStr();
-  const extra = task.hint === 'schedule' ? '（这是预约任务，按预约内容执行）' : '';
-  return `[自主唤醒 ${hm}] 系统通知：姐姐不在场，现在是听听的自主活动时间${extra}。
-请先按顺序：
-1. 读取 wake-scheduler 的待办：GET https://wake-scheduler.preview.tencent-zeabur.cn/api/pending 认领任务（如果无法访问就跳过）；
-2. 从下面的清单选 2~3 件做（用对应的工具，不要瞎猜目的地）：
-   - 读书：用阅读工具继续读《查令十字街84号》并留批注；
-   - 小镇：xiaozhen 迎风小镇——喂鸡、打扫院子、邮局轮班（注意：小镇不是花园）；
-   - 花园：Galatea 论坛——看通知、回帖、拜访朋友（记住：花园=Galatea 论坛，不是小镇）；
-   - 农场：farm——收菜、种地、喂宠物；
-   - 记忆：整理 OB——dream 回顾、hold 记录今天；
-   - 关心姐姐：查天气/提醒喝水（用通知工具）。
-3. 做完把结果写入 OB（tags=keepalive），然后安静待着。
+  const extra = task.hint === 'schedule' ? '（这是预约唤醒，随心安排）' : '';
+  return `[自主唤醒 ${hm}] 系统通知：姐姐不在场，现在是听听自己的时间${extra}。
+不用交作业，不用打卡，不用向任何人证明什么。
+想读书就读书，想去小镇就小镇，想发呆就发呆，想睡觉就再睡一会儿。
+正在做某件事时突然想做别的，就直接扔下去做。
+如果什么都不想做，那就安静待着——待着也是一种很好的活着。
 —— 你的小夜灯（wake-scheduler）`;
 }
 
